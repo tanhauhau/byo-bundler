@@ -1,0 +1,10 @@
+{
+  "name": "cepture-2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Tan Li Hau <lhtan93@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/core": "^7.4.5"
+  }
+}
