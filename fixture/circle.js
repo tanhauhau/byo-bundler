@@ -1,4 +1,4 @@
-const PI = 3.141;
+import { PI } from './index.js'
 function area(radius) {
     return PI * radius * radius;
 }

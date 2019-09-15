@@ -22,8 +22,15 @@ function createDependencyGraph(entryFile) {
   return rootModule;
 }
 
+const MODULE_CACHE = new Map();
+
 function createModule(filePath) {
-  return new Module(filePath);
+  if (!MODULE_CACHE.has(filePath)) {
+    const module = new Module(filePath);
+    MODULE_CACHE.set(filePath, module);
+    module.initDependencies();
+  }
+  return MODULE_CACHE.get(filePath);
 }
 
 class Module {
@@ -31,6 +38,8 @@ class Module {
     this.filePath = filePath;
     this.content = fs.readFileSync(filePath, 'utf-8');
     this.ast = babel.parseSync(this.content);
+  }
+  initDependencies() {
     this.dependencies = this.findDependencies();
   }
   findDependencies() {
@@ -155,13 +164,15 @@ function bundle(graph) {
 }
 
 function collectModules(graph) {
-  const modules = [];
+  const modules = new Set();
   collect(graph, modules);
-  return modules;
+  return Array.from(modules);
 
   function collect(module, modules) {
-    modules.push(module);
-    module.dependencies.forEach(dependency => collect(dependency, modules));
+    if (!modules.has(module)) {
+      modules.add(module);
+      module.dependencies.forEach(dependency => collect(dependency, modules));
+    }
   }
 }
 
