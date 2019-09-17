@@ -59,18 +59,33 @@ class Module {
           return {
             visitor: {
               ImportDeclaration(path) {
-                const properties = path.get('specifiers').map(specifier => {
-                  const imported = specifier.isImportDefaultSpecifier()
-                    ? t.identifier('default')
-                    : specifier.get('imported').node;
-                  const local = specifier.get('local').node;
+                const newIdentifier = path.scope.generateUidIdentifier(
+                  'imported'
+                );
 
-                  return t.objectProperty(imported, local, false, false);
-                });
+                for (const specifier of path.get('specifiers')) {
+                  const binding = specifier.scope.getBinding(
+                    specifier.node.local.name
+                  );
+                  const importedKey = specifier.isImportDefaultSpecifier()
+                    ? 'default'
+                    : specifier.get('imported.name').node;
+
+                  for (const referencePath of binding.referencePaths) {
+                    referencePath.replaceWith(
+                      t.memberExpression(
+                        newIdentifier,
+                        t.stringLiteral(importedKey),
+                        true
+                      )
+                    );
+                  }
+                }
+
                 path.replaceWith(
                   t.variableDeclaration('const', [
                     t.variableDeclarator(
-                      t.objectPattern(properties),
+                      newIdentifier,
                       t.callExpression(t.identifier('require'), [
                         t.stringLiteral(
                           resolveRequest(
