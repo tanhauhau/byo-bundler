@@ -23,7 +23,6 @@ function createDependencyGraph(entryFile) {
 }
 
 const MODULE_CACHE = new Map();
-
 function createModule(filePath) {
   if (!MODULE_CACHE.has(filePath)) {
     const module = new Module(filePath);
@@ -43,11 +42,19 @@ class Module {
     this.dependencies = this.findDependencies();
   }
   findDependencies() {
-    return this.ast.program.body
-      .filter(node => node.type === 'ImportDeclaration')
-      .map(node => node.source.value)
-      .map(relativePath => resolveRequest(this.filePath, relativePath))
-      .map(absolutePath => createModule(absolutePath));
+    const importDeclarations = this.ast.program.body.filter(
+      node => node.type === 'ImportDeclaration'
+    );
+    const dependencies = [];
+    for (const importDeclaration of importDeclarations) {
+      const requestPath = importDeclaration.source.value;
+      const resolvedPath = resolveRequest(this.filePath, requestPath);
+      dependencies.push(createModule(resolvedPath));
+
+      //replace the request path to the resolved path
+      importDeclaration.source.value = resolvedPath;
+    }
+    return dependencies;
   }
   transformModuleInterface() {
     const { types: t } = babel;
@@ -87,12 +94,7 @@ class Module {
                     t.variableDeclarator(
                       newIdentifier,
                       t.callExpression(t.identifier('require'), [
-                        t.stringLiteral(
-                          resolveRequest(
-                            filePath,
-                            path.get('source.value').node
-                          )
-                        ),
+                        path.get('source').node,
                       ])
                     ),
                   ])
@@ -167,7 +169,18 @@ class Module {
 
 // resolving
 function resolveRequest(requester, requestPath) {
-  return path.join(path.dirname(requester), requestPath);
+  if (requestPath[0] === '.') {
+    // relative import
+    return path.join(path.dirname(requester), requestPath);
+  } else {
+    const requesterParts = requester.split('/');
+    const requestPaths = [];
+    for (let i = requesterParts.length - 1; i > 0; i--) {
+      requestPaths.push(requesterParts.slice(0, i).join('/') + '/node_modules');
+    }
+    // absolute import
+    return require.resolve(requestPath, { paths: requestPaths });
+  }
 }
 
 // bundling
@@ -197,7 +210,7 @@ function toModuleMap(modules) {
 
   for (const module of modules) {
     module.transformModuleInterface();
-    moduleMap += `"${module.filePath}": function(exports, require) { ${module.content} },`;
+    moduleMap += `"${module.filePath}": function(exports, require) { ${module.content}\n },`;
   }
 
   moduleMap += '}';
