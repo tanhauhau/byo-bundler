@@ -2,11 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const babel = require('@babel/core');
 
-function build({ entryFile, outputFolder }) {
+function build({ entryFile, outputFolder, htmlTemplatePath }) {
   // build dependency graph
   const graph = createDependencyGraph(entryFile);
   // bundle the asset
   const outputFiles = bundle(graph);
+  outputFiles.push(generateHTMLTemplate(htmlTemplatePath, outputFiles));
   // write to output folder
   for (const outputFile of outputFiles) {
     fs.writeFileSync(
@@ -254,7 +255,18 @@ function trim(str) {
   return lines.map(line => line.replace(regex, '')).join('\n');
 }
 
+function generateHTMLTemplate(htmlTemplatePath, outputFiles) {
+  let htmlTemplate = fs.readFileSync(htmlTemplatePath, 'utf-8');
+  htmlTemplate = htmlTemplate.replace(
+    '</body>',
+    outputFiles.map(({ name }) => `<script src="/${name}"></script>`).join('') +
+      '</body>'
+  );
+  return { name: 'index.html', content: htmlTemplate };
+}
+
 build({
   entryFile: path.join(__dirname, '../fixture/index.js'),
   outputFolder: path.join(__dirname, '../output'),
+  htmlTemplatePath: path.join(__dirname, '../fixture/index.html'),
 });
