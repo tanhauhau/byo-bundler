@@ -26,7 +26,12 @@ function createDependencyGraph(entryFile) {
 const MODULE_CACHE = new Map();
 function createModule(filePath) {
   if (!MODULE_CACHE.has(filePath)) {
-    const module = new Module(filePath);
+    const fileExtension = path.extname(filePath);
+    const ModuleCls = MODULE_LOADERS[fileExtension];
+    if (!ModuleCls) {
+      throw new Error(`Unsupported extension "${fileExtension}".`);
+    }
+    const module = new ModuleCls(filePath);
     MODULE_CACHE.set(filePath, module);
     module.initDependencies();
   }
@@ -37,6 +42,18 @@ class Module {
   constructor(filePath) {
     this.filePath = filePath;
     this.content = fs.readFileSync(filePath, 'utf-8');
+    this.transform();
+  }
+  initDependencies() {
+    this.dependencies = [];
+  }
+  transform() {}
+  transformModuleInterface() {}
+}
+
+class JSModule extends Module {
+  constructor(filePath) {
+    super(filePath);
     this.ast = babel.parseSync(this.content);
   }
   initDependencies() {
@@ -167,6 +184,24 @@ class Module {
     this.content = code;
   }
 }
+
+class CSSModule extends Module {
+  transform() {
+    this.content = trim(`
+      const content = '${this.content.replace(/\n/g, '')}';
+      const style = document.createElement('style');
+      style.type = 'text/css';
+      if (style.styleSheet) style.styleSheet.cssText = content;
+      else style.appendChild(document.createTextNode(content));
+      document.head.appendChild(style);
+    `);
+  }
+}
+
+const MODULE_LOADERS = {
+  '.css': CSSModule,
+  '.js': JSModule,
+};
 
 // resolving
 function resolveRequest(requester, requestPath) {
