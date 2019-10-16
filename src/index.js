@@ -1,13 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 const babel = require('@babel/core');
+const express = require('express');
 
-function build({ entryFile, outputFolder, htmlTemplatePath }) {
+function _build({ entryFile, htmlTemplatePath }) {
   // build dependency graph
   const graph = createDependencyGraph(entryFile);
   // bundle the asset
   const outputFiles = bundle(graph);
   outputFiles.push(generateHTMLTemplate(htmlTemplatePath, outputFiles));
+  return { outputFiles, graph };
+}
+
+function build({ entryFile, outputFolder, htmlTemplatePath }) {
+  const { outputFiles } = _build({ entryFile, htmlTemplatePath });
   // write to output folder
   for (const outputFile of outputFiles) {
     fs.writeFileSync(
@@ -16,6 +22,32 @@ function build({ entryFile, outputFolder, htmlTemplatePath }) {
       'utf-8'
     );
   }
+}
+
+function dev({ entryFile, outputFolder, htmlTemplatePath, devServerOptions }) {
+  const { outputFiles } = _build({ entryFile, htmlTemplatePath });
+
+  // create a map of [filename] -> content
+  const outputFileMap = {};
+  for (const outputFile of outputFiles) {
+    outputFileMap[outputFile.name] = outputFile.content;
+  }
+  const indexHtml = outputFileMap['index.html'];
+
+  const app = express();
+  app.use((req, res) => {
+    // trim off preceding slash '/'
+    const requestFile = req.path.slice(1);
+    if (outputFileMap[requestFile]) {
+      return res.send(outputFileMap[requestFile]);
+    }
+    res.send(indexHtml);
+  });
+  app.listen(devServerOptions.port, () =>
+    console.log(
+      `Dev server starts at http://localhost:${devServerOptions.port}`
+    )
+  );
 }
 
 function createDependencyGraph(entryFile) {
@@ -300,8 +332,11 @@ function generateHTMLTemplate(htmlTemplatePath, outputFiles) {
   return { name: 'index.html', content: htmlTemplate };
 }
 
-build({
+dev({
   entryFile: path.join(__dirname, '../fixture/index.js'),
   outputFolder: path.join(__dirname, '../output'),
   htmlTemplatePath: path.join(__dirname, '../fixture/index.html'),
+  devServerOptions: {
+    port: 3000,
+  },
 });

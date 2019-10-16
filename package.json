@@ -5,6 +5,7 @@
   "author": "Tan Li Hau <lhtan93@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@babel/core": "^7.4.5"
+    "@babel/core": "^7.4.5",
+    "express": "^4.17.1"
   }
 }
