@@ -10,7 +10,7 @@ function build({ entryFile, outputFolder }) {
   // write to output folder
   for (const outputFile of outputFiles) {
     fs.writeFileSync(
-      path.join(outputFolder, outputFile.name),
+      path.posix.join(outputFolder, outputFile.name),
       outputFile.content,
       'utf-8'
     );
@@ -167,7 +167,7 @@ class Module {
 
 // resolving
 function resolveRequest(requester, requestPath) {
-  return path.join(path.dirname(requester), requestPath);
+  return path.posix.join(path.dirname(requester), requestPath);
 }
 
 // bundling
@@ -242,6 +242,6 @@ function trim(str) {
 }
 
 build({
-  entryFile: path.join(__dirname, '../fixture/index.js'),
-  outputFolder: path.join(__dirname, '../output'),
+  entryFile: path.posix.join(__dirname, '../fixture/index.js'),
+  outputFolder: path.posix.join(__dirname, '../output'),
 });
